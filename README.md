@@ -22,27 +22,19 @@ These steps assume the installation onto a glance server.
 5. **Copy irods_store.py.** Copy the irods_store.py into /usr/lib/python2.7/dist-packages/glance/store/ directory (or the right location for where python glance packages are installed)
 6. **Configuration.** Add or change the following configuration to your glance-api.conf file, which is /etc/glance/glance-api.conf for the glance-api packaged by Ubuntu Cloud Archive.  These are options are found in the [DEFAULT] section:
 
-    \# I prefer irods
-
+    \# I prefer irods  
     default_store = irods
 
-    \# you can also tack it onto the end of the list as well
-
+    \# you can also tack it onto the end of the list as well  
     known_stores = glance.store.irods\_store.Store
 
-    \# iRODS Store Options
-
-    irods_store_host = my.exampleirodshost.org
-
-    irods\_store\_port = 1247
-
-    irods\_store\_zone = tempZone
-
-    irod\s_store\_path = /tempZone/home/openstack\_images
-
-    irods\_store\_user = openstack\_images
-
-    irods\_store\_password = somepassword
+    \# iRODS Store Options  
+    irods_store_host = my.exampleirodshost.org  
+    irods\_store\_port = 1247  
+    irods\_store\_zone = tempZone  
+    irod\s_store\_path = /tempZone/home/openstack\_images  
+    irods\_store\_user = openstack\_images  
+    irods\_store\_password = somepassword  
 
 Questions?
 ----------
