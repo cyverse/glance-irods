@@ -23,18 +23,26 @@ These steps assume the installation onto a glance server.
 6. Add or change the following configuration to your glance-api.conf file, which is /etc/glance/glance-api.conf for the glance-api packaged by Ubuntu Cloud Archive.  These are options are found in the [DEFAULT] section:
 
     \# I prefer irods
+
     default_store = irods
 
     \# you can also tack it onto the end of the list as well
-    known_stores = glance.store.irods_store.Store
+
+    known_stores = glance.store.irods\_store.Store
 
     \# iRODS Store Options
+
     irods_store_host = my.exampleirodshost.org
-    irods_store_port = 1247
-    irods_store_zone = tempZone
-    irods_store_path = /tempZone/home/openstack_images
-    irods_store_user = openstack_images
-    irods_store_password = somepassword
+
+    irods\_store\_port = 1247
+
+    irods\_store\_zone = tempZone
+
+    irod\s_store\_path = /tempZone/home/openstack\_images
+
+    irods\_store\_user = openstack\_images
+
+    irods\_store\_password = somepassword
 
 Questions?
 ----------
