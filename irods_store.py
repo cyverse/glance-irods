@@ -1,41 +1,15 @@
 """
-Copyright (c) 2011, The Arizona Board of Regents on behalf of 
-The University of Arizona
+Abstration for an image file
 
-All rights reserved.
+Assumption: in iRODs, the path (aka collection) usually embeds the zone.  In
+some cases, such as in a federated environment, the zone and a path to a data
+object may not be the same.  This implementation assumes that the data object
+exists within the same zone.  This could be modified later, if there is a real
+use case for it.
 
-Developed by: iPlant Collaborative as a collaboration between
-participants at BIO5 at The University of Arizona (the primary hosting
-institution), Cold Spring Harbor Laboratory, The University of Texas at
-Austin, and individual contributors. Find out more at 
-http://www.iplantcollaborative.org/.
-
-Redistribution and use in source and binary forms, with or without 
-modification, are permitted provided that the following conditions are
-met:
-
- * Redistributions of source code must retain the above copyright 
-   notice, this list of conditions and the following disclaimer.
- * Redistributions in binary form must reproduce the above copyright 
-   notice, this list of conditions and the following disclaimer in the 
-   documentation and/or other materials provided with the distribution.
- * Neither the name of the iPlant Collaborative, BIO5, The University 
-   of Arizona, Cold Spring Harbor Laboratory, The University of Texas at 
-   Austin, nor the names of other contributors may be used to endorse or 
-   promote products derived from this software without specific prior 
-   written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED 
-TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A 
-PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
-HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS 
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Assumption: this implementation also assumes an installation of PyRODS, which
+is left to a qualified systems person to get everything installed correctly ;).
+https://code.google.com/p/irodspython/wiki/PyRods
 
 Author: Edwin Skidmore
 Email: edwin@iplantcollaborative.org
@@ -46,11 +20,15 @@ import httplib
 import re
 import tempfile
 import urlparse
+
 from irods import *
+
 from glance.common import exception
 from glance.common import utils
+
 from glance.openstack.common import cfg
 import glance.openstack.common.log as logging
+
 import glance.store
 import glance.store.base
 import glance.store.location
@@ -64,24 +42,13 @@ irods_opts = [
     cfg.StrOpt('irods_store_path'),
     cfg.StrOpt('irods_store_user', secret=True),
     cfg.StrOpt('irods_store_password', secret=True)
-    ]
+]
 
 CONF = cfg.CONF
 CONF.register_opts(irods_opts)
 
-"""
-Abstration for an image file
 
-Assumption: in iRODs, the path (aka collection) usually embeds the zone.  In some cases, such as in a federated
-environment, the zone and a path to a data object may not be the same.  This implementation assumes that
-the data object exists within the same zone.  This could be modified later, if there is a real use case for it.
-
-Assumption: this implementation also assumes an installation of PyRODS, which is left to a qualified systems
-person to get everything installed correctly ;). https://code.google.com/p/irodspython/wiki/PyRods
-
-"""
 class StoreLocation(glance.store.location.StoreLocation):
-
     """
     Class describing an iRODS URI, in the form:
 
@@ -91,15 +58,15 @@ class StoreLocation(glance.store.location.StoreLocation):
     """
 
     def process_specs(self):
-        self.scheme     = self.specs.get('scheme','irods')
-        self.host       = self.specs.get('host')
-        self.port       = self.specs.get('port')
-        self.zone       = self.specs.get('zone')
-        self.path       = self.specs.get('path')
-        self.user       = self.specs.get('user')
-        self.password   = self.specs.get('password')
-        self.data_name  = self.specs.get('data_name')
- 
+        self.scheme = self.specs.get('scheme', 'irods')
+        self.host = self.specs.get('host')
+        self.port = self.specs.get('port')
+        self.zone = self.specs.get('zone')
+        self.path = self.specs.get('path')
+        self.user = self.specs.get('user')
+        self.password = self.specs.get('password')
+        self.data_name = self.specs.get('data_name')
+
     def _get_credstring(self):
         if self.user:
             return '%s:%s' % (self.user, self.password)
@@ -114,37 +81,39 @@ class StoreLocation(glance.store.location.StoreLocation):
         """
         Parses the uri's
         """
-        pieces          = urlparse.urlparse(uri)
-        assert pieces.scheme in ('irods_store','irods')
-        self.scheme     = pieces.scheme
-        self.host       = pieces.hostname
-        self.path        = pieces.path.rstrip('/')
-        self.user       = pieces.username
-        self.password   = pieces.password
+        pieces = urlparse.urlparse(uri)
+        assert pieces.scheme in ('irods_store', 'irods')
+        self.scheme = pieces.scheme
+        self.host = pieces.hostname
+        self.path = pieces.path.rstrip('/')
+        self.user = pieces.username
+        self.password = pieces.password
 
         # for now, unless there is a compelling use case,
         # let's just assume the zone embedded in the path
         path_parts = self.path.split('/')
-        self.zone       = path_parts[1]
-        self.data_name  = path_parts[path_parts.__len__()-1]
+        self.zone = path_parts[1]
+        self.data_name = path_parts[path_parts.__len__()-1]
 
         # we'll assume a default if not set
         if pieces.port is None:
-            self.port   = 1247
+            self.port = 1247
         else:
-            self.port   = pieces.port
+            self.port = pieces.port
 
         # let's do a few preliminary checks, values are
         # according to urlparse
-        if self.host is None or self.user is None or self.path is None is None or self.data_name is None:
+        if self.host is None or self.user is None \
+           or self.path is None is None or self.data_name is None:
             reason = _("iRODS URI is invalid")
             LOG.error(reason)
             raise exception.BadStoreUri(message=reason)
 
+
 class Store(glance.store.base.Store):
 
     def get_schemes(self):
-        return ('irods_store','irods')
+        return ('irods_store', 'irods')
 
     def configure_add(self):
         """
@@ -154,39 +123,46 @@ class Store(glance.store.base.Store):
         itself, it should raise `exception.BadStoreConfiguration`
         """
 
-        self.host     = self._option_get('irods_store_host')
-        self.port     = self._option_get('irods_store_port')
-        self.zone     = self._option_get('irods_store_zone')
-        self.path     = self._option_get('irods_store_path').rstrip('/')
-        self.user     = self._option_get('irods_store_user')
+        self.host = self._option_get('irods_store_host')
+        self.port = self._option_get('irods_store_port')
+        self.zone = self._option_get('irods_store_zone')
+        self.path = self._option_get('irods_store_path').rstrip('/')
+        self.user = self._option_get('irods_store_user')
         self.password = self._option_get('irods_store_password')
-        self.scheme   = 'irods'
+        self.scheme = 'irods'
 
-        if self.host is None or self.zone is None or self.path is None or self.user is None:
+        if self.host is None or self.zone is None \
+           or self.path is None or self.user is None:
             reason = (_("Invalid configuration options, host = '%(host)s', " +
-                        "port = '%(port)s', zone = '%(zone)s', path = '%(path)s', " +
-                        "user = '%(user)'") %
-                      ({'host':self.host, 'port':self.port, 'zone':self.zone,
-                        'path':self.path, 'user':self.user}))
+                        "port = '%(port)s', zone = '%(zone)s', " +
+                        "path = '%(path)s', user = '%(user)'") %
+                      ({'host': self.host, 'port': self.port,
+                        'zone': self.zone, 'path': self.path,
+                        'user': self.user}))
             LOG.error(reason)
-            raise exception.BadStoreConfiguration(store_name="irods",reason=reason)
+            raise exception.BadStoreConfiguration(store_name="irods",
+                                                  reason=reason)
 
         try:
-            msg = (_("connecting to irods://%(host)s:%(port)s%(path)s in zone %(zone)s") %
-                   ({'host':self.host, 'port':self.port, 'path':self.path, 'zone':self.zone }))
+            msg = (_("connecting to irods://%(host)s:%(port)s%(path)s " +
+                     "in zone %(zone)s") %
+                   ({'host': self.host, 'port': self.port,
+                     'path': self.path, 'zone': self.zone}))
             LOG.debug(msg)
-            conn,err = rcConnect (self.host,self.port,self.user,self.zone)
-            status = clientLoginWithPassword(conn,self.password)
+            conn, err = rcConnect(self.host, self.port, self.user, self.zone)
+            status = clientLoginWithPassword(conn, self.password)
         except Exception:
-            reason = (_("Could not connect with host, port, zone, path, or user/password"))
+            reason = (_("Could not connect with host, port, zone," +
+                        " path, or user/password"))
             LOG.error(reason)
-            raise exception.BadStoreConfiguration(store_name="irods",reason=reason)
+            raise exception.BadStoreConfiguration(store_name="irods",
+                                                  reason=reason)
 
         # check if file exists
         # using queryCollAcl, if for no other reason than to easily check
         # if it exists.  There ought to be a easier way PyRods!
         LOG.debug("attempting to query collection %s" % self.path)
-        (genquery,retval) = queryCollAcl (conn, self.path)
+        (genquery, retval) = queryCollAcl(conn, self.path)
 
         # for now, let's just close junk up
         genquery.free()
@@ -194,9 +170,11 @@ class Store(glance.store.base.Store):
         if retval == 0:
             LOG.debug("success")
         else:
-            reason = _("collection '%s' is not valid or must be created beforehand") % self.path
+            reason = _("collection '%s' is not valid or must be " +
+                       "created beforehand") % self.path
             LOG.error(reason)
-            raise exception.BadStoreConfiguration(store_name="irods",reason=reason)
+            raise exception.BadStoreConfiguration(store_name="irods",
+                                                  reason=reason)
 
     def get(self, location):
         """
@@ -211,10 +189,10 @@ class Store(glance.store.base.Store):
         full_data_path = self.path + "/" + location.store_location.data_name
 
         LOG.debug("connecting to %(host)s for %(data)s" %
-                  ({'host':self.host, 'data':full_data_path}))
-        conn,err = rcConnect (self.host,self.port,self.user,self.zone)
-        status = clientLoginWithPassword(conn,self.password)
-        f = iRodsOpen (conn,full_data_path,'r')
+                  ({'host': self.host, 'data': full_data_path}))
+        conn, err = rcConnect(self.host, self.port, self.user, self.zone)
+        status = clientLoginWithPassword(conn, self.password)
+        f = iRodsOpen(conn, full_data_path, 'r')
 
         if f is None:
             msg = _("image file %s not found") % full_data_path
@@ -224,13 +202,14 @@ class Store(glance.store.base.Store):
         else:
             s = self.get_size(location)
 
-            msg = _("found image at %s. Returning in ChunkedFile.") % full_data_path
+            msg = _("found image at %s. Returning in ChunkedFile.") \
+                % full_data_path
             LOG.debug(msg)
 
             # it is assumed that the ChunkedFile will close the file correctly
-            return (ChunkedFile(f,conn), s)
+            return (ChunkedFile(f, conn), s)
 
-    def get_size(self,location):
+    def get_size(self, location):
         """
         Takes a `glance.store.location.Location` object that indicates
         where to find the image file, and returns the image_size (or 0
@@ -241,19 +220,21 @@ class Store(glance.store.base.Store):
         """
         try:
 
-            full_data_path = self.path + "/" + location.store_location.data_name
+            full_data_path = self.path + "/" \
+                + location.store_location.data_name
 
-            LOG.debug ("connecting to %(host)s for %(data)s" %
-                       ({'host':self.host, 'data':full_data_path}))
-            conn,err = rcConnect (self.host,self.port,self.user,self.zone)
-            status = clientLoginWithPassword(conn,self.password)
+            LOG.debug("connecting to %(host)s for %(data)s" %
+                      ({'host': self.host, 'data': full_data_path}))
+            conn, err = rcConnect(self.host, self.port, self.user, self.zone)
+            status = clientLoginWithPassword(conn, self.password)
 
-            LOG.debug ("obtaining collection to file resources")
-            c = irodsCollection (conn, self.path)
+            LOG.debug("obtaining collection to file resources")
+            c = irodsCollection(conn, self.path)
             objs = c.getObjects()
 
             # I have to grab the resource in this way, bleh
-            # this assumes the data object exists within the collection of the store
+            # this assumes the data object exists within the
+            # collection of the store
             resource = None
             for sublist in objs:
                 if sublist[0] == location.store_location.data_name:
@@ -263,13 +244,14 @@ class Store(glance.store.base.Store):
             # accessible from the collection, apparently
             if (resource is None):
                 msg = "could not obtain resource for %s" % full_data_path
-                LOG.error (msg)
-                raise BackendException (msg) 
-            info = getFileInfo (conn,full_data_path,resource)
+                LOG.error(msg)
+                raise BackendException(msg)
+            info = getFileInfo(conn, full_data_path, resource)
 
             conn.disconnect()
             LOG.debug("path = %(path)s, size = %(data_size)s" %
-                      ({'path':full_data_path, 'data_size':info['data_size']}))
+                      ({'path': full_data_path,
+                        'data_size': info['data_size']}))
             return info['data_size']
         except Exception:
             conn.disconnect()
@@ -287,19 +269,19 @@ class Store(glance.store.base.Store):
         :raises Forbidden if cannot delete because of permissions
         """
         full_data_path = self.path + "/" + location.store_location.data_name
-        
-        LOG.debug ("connecting to %(host)s for %(data)s" %
-                   ({'host':self.host, 'data':full_data_path}))
-        conn,err = rcConnect (self.host,self.port,self.user,self.zone)
-        status = clientLoginWithPassword(conn,self.password)
+
+        LOG.debug("connecting to %(host)s for %(data)s" %
+                  ({'host': self.host, 'data': full_data_path}))
+        conn, err = rcConnect(self.host, self.port, self.user, self.zone)
+        status = clientLoginWithPassword(conn, self.password)
 
         LOG.debug("opening file %s" % full_data_path)
-        f = iRodsOpen (conn, full_data_path, 'r')
+        f = iRodsOpen(conn, full_data_path, 'r')
         if f is None:
             LOG.error("file not found")
             if conn is not None:
                 conn.disconnect
-            raise exception.NotFound(store_name="irods",reason=reason)
+            raise exception.NotFound(store_name="irods", reason=reason)
 
         retval = f.delete()
         conn.disconnect()
@@ -307,7 +289,7 @@ class Store(glance.store.base.Store):
             LOG.debug("delete success")
         else:
             LOG.error("apparently, cannot delete file!")
-            raise exception.Forbidden(store_name="irods",reason=reason)            
+            raise exception.Forbidden(store_name="irods", reason=reason)
 
     def add(self, image_id, image_file, image_size):
         """
@@ -330,17 +312,18 @@ class Store(glance.store.base.Store):
         """
         full_data_path = self.path + "/" + image_id
 
-        LOG.debug ("connecting to %(host)s for %(data)s" %
-                   ({'host':self.host, 'data':full_data_path}))
-        conn,err = rcConnect (self.host,self.port,self.user,self.zone)
-        status = clientLoginWithPassword(conn,self.password)
+        LOG.debug("connecting to %(host)s for %(data)s" %
+                  ({'host': self.host, 'data': full_data_path}))
+        conn, err = rcConnect(self.host, self.port, self.user, self.zone)
+        status = clientLoginWithPassword(conn, self.password)
 
-        LOG.debug ("attempting to open irods file '%s'" % full_data_path)
-        f = iRodsOpen(conn,full_data_path,"w")
+        LOG.debug("attempting to open irods file '%s'" % full_data_path)
+        f = iRodsOpen(conn, full_data_path, "w")
 
         if f is None:
             conn.close()
-            raise exception.Duplicate(_("image file %s already exists or no perms")
+            raise exception.Duplicate(_("image file %s already exists "
+                                        + "or no perms")
                                       % filepath)
 
         LOG.debug("performing the write")
@@ -361,13 +344,16 @@ class Store(glance.store.base.Store):
             f.close()
             conn.disconnect()
             raise exception.StorageWriteDenied(reason)
-            
+
         f.close()
 
         checksum_hex = checksum.hexdigest()
 
-        LOG.debug ("Wrote %(bytes)d bytes to %(path)s, checksum = %(checksum)s" %
-                   ({'bytes':bytes_written, 'path':full_data_path, 'checksum':checksum_hex}))
+        LOG.debug("Wrote %(bytes)d bytes to %(path)s, "
+                  + "checksum = %(checksum)s" %
+                  ({'bytes': bytes_written,
+                    'path': full_data_path,
+                    'checksum': checksum_hex}))
         loc = StoreLocation({'scheme': self.scheme,
                              'host': self.host,
                              'port': self.port,
@@ -381,9 +367,11 @@ class Store(glance.store.base.Store):
     def _option_get(self, param):
         result = getattr(CONF, param)
         if not result:
-            reason = _("Could not find %(param)s in configuration options.") % locals()
+            reason = _("Could not find %(param)s in configuration options.") \
+                % locals()
             LOG.error(reason)
-            raise exception.BadStoreConfiguration(store_name="s3", reason=reason)
+            raise exception.BadStoreConfiguration(store_name="s3",
+                                                  reason=reason)
         return result
 
 
