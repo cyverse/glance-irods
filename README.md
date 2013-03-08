@@ -42,4 +42,4 @@ Feel free to email me at edwin@iplantcollaborative.org
 
 License
 -------
-It's a standard BSD License.
+It's a standard BSD License. See LICENSE.txt
