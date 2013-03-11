@@ -32,7 +32,7 @@ These steps assume the installation onto a glance server.
     irods_store_host = my.exampleirodshost.org  
     irods\_store\_port = 1247  
     irods\_store\_zone = tempZone  
-    irod\s_store\_path = /tempZone/home/openstack\_images  
+    irods\_store\_path = /tempZone/home/openstack\_images  
     irods\_store\_user = openstack\_images  
     irods\_store\_password = somepassword  
 
