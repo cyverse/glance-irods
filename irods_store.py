@@ -62,7 +62,7 @@ from irods import *
 from glance.common import exception
 from glance.common import utils
 
-from glance.openstack.common import cfg
+from oslo.config import cfg
 import glance.openstack.common.log as logging
 
 import glance.store
