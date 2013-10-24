@@ -76,6 +76,8 @@ irods_opts = [
     cfg.IntOpt('irods_store_port', default=1247),
     cfg.StrOpt('irods_store_zone'),
     cfg.StrOpt('irods_store_path'),
+    cfg.StrOpt('irods_store_primary_res'),
+    cfg.StrOpt('irods_store_replica_res'),
     cfg.StrOpt('irods_store_user', secret=True),
     cfg.StrOpt('irods_store_password', secret=True)
 ]
@@ -163,6 +165,8 @@ class Store(glance.store.base.Store):
         self.port = self._option_get('irods_store_port')
         self.zone = self._option_get('irods_store_zone')
         self.path = self._option_get('irods_store_path').rstrip('/')
+        self.primary_res = self._option_get('irods_store_primary_res')
+        self.replica_res = self._option_get('irods_store_replica_res')
         self.user = self._option_get('irods_store_user')
         self.password = self._option_get('irods_store_password')
         self.scheme = 'irods'
@@ -197,20 +201,20 @@ class Store(glance.store.base.Store):
         # check if file exists
         # using queryCollAcl, if for no other reason than to easily check
         # if it exists.  There ought to be a easier way PyRods!
-        LOG.debug("attempting to query collection %s" % self.path)
-        (genquery, retval) = queryCollAcl(conn, self.path)
-
-        # for now, let's just close junk up
-        genquery.free()
-        conn.disconnect()
-        if retval == 0:
-            LOG.debug("success")
-        else:
+        LOG.debug("attempting to check the collection %s" % self.path)
+	try:
+	    c = irodsCollection(conn, self.path)
+	except Exception:
             reason = _("collection '%s' is not valid or must be " +
                        "created beforehand") % self.path
             LOG.error(reason)
+            conn.disconnect()
             raise exception.BadStoreConfiguration(store_name="irods",
                                                   reason=reason)
+
+        # for now, let's just close junk up
+        LOG.debug("success")
+        conn.disconnect()
 
     def get(self, location):
         """
@@ -228,7 +232,10 @@ class Store(glance.store.base.Store):
                   ({'host': self.host, 'data': full_data_path}))
         conn, err = rcConnect(self.host, self.port, self.user, self.zone)
         status = clientLoginWithPassword(conn, self.password)
-        f = iRodsOpen(conn, full_data_path, 'r')
+        if self.primary_res is None:
+            f = irodsOpen(conn, full_data_path, 'r')
+        else:
+            f = irodsOpen(conn, full_data_path, 'r', self.primary_res)
 
         if f is None:
             msg = _("image file %s not found") % full_data_path
@@ -312,7 +319,7 @@ class Store(glance.store.base.Store):
         status = clientLoginWithPassword(conn, self.password)
 
         LOG.debug("opening file %s" % full_data_path)
-        f = iRodsOpen(conn, full_data_path, 'r')
+        f = irodsOpen(conn, full_data_path, 'r')
         if f is None:
             LOG.error("file not found")
             if conn is not None:
@@ -354,7 +361,10 @@ class Store(glance.store.base.Store):
         status = clientLoginWithPassword(conn, self.password)
 
         LOG.debug("attempting to open irods file '%s'" % full_data_path)
-        f = iRodsOpen(conn, full_data_path, "w")
+        if self.primary_res is None:
+            f = irodsOpen(conn, full_data_path, "w")
+        else:
+            f = irodsOpen(conn, full_data_path, "w", self.primary_res)
 
         if f is None:
             conn.close()
@@ -382,6 +392,17 @@ class Store(glance.store.base.Store):
             raise exception.StorageWriteDenied(reason)
 
         f.close()
+
+        # let's attempt a replication, but only if the replica resource is not the same as the primary resource
+        # if the replication fails, then just ignore
+# TODO: irodsFile.replicate() does not work with PyRods v3.2.6 due to a type error.   For now, replication will be disabled! boo
+#        if self.replica_res is not None and self.replica_res != self.primary_res :
+#            try:
+#                f = irodsOpen(conn, full_data_path, 'r')
+#                f.replicate(self.replica_res)
+#                f.close()
+#            except Exception:
+#                LOG.error("WARNING: could not replicate '" + full_data_path + "' to resource '" + self.replica_res + "'")
 
         checksum_hex = checksum.hexdigest()
 
