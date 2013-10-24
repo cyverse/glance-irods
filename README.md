@@ -37,6 +37,7 @@ These steps assume the installation onto a glance server.
     irods\_store\_password = somepassword  
 
     \# if specified, the irods store will specify this as the destination resource
+
     irods\_store\_primary_res = primaryresource  
     \# if specified, the irods store will replicate the image to the secondary irods resource
     irods\_store\_secondary_res = secondaryresource  
