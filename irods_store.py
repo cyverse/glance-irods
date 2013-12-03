@@ -392,25 +392,23 @@ class Store(glance.store.base.Store):
             raise exception.StorageWriteDenied(reason)
 
         f.close()
+        conn.disconnect()
 
         # let's attempt a replication, but only if the replica resource is not the same as the primary resource
         # if the replication fails, then just ignore
-# TODO: irodsFile.replicate() does not work with PyRods v3.2.6 due to a type error.   For now, replication will be disabled! boo
-#        if self.replica_res is not None and self.replica_res != self.primary_res :
-#            try:
-#                f = irodsOpen(conn, full_data_path, 'r')
-#                f.replicate(self.replica_res)
-#                f.close()
-#            except Exception:
-#                LOG.error("WARNING: could not replicate '" + full_data_path + "' to resource '" + self.replica_res + "'")
+	# TODO: irodsFile.replicate() does not work with PyRods v3.2.6 due to a type error.   For now, replication will be disabled! boo
+	#        if self.replica_res is not None and self.replica_res != self.primary_res :
+	#            try:
+	#                f = irodsOpen(conn, full_data_path, 'r')
+	#                f.replicate(self.replica_res)
+	#                f.close()
+	#            except Exception:
+	#                LOG.error("WARNING: could not replicate '" + full_data_path + "' to resource '" + self.replica_res + "'")
 
         checksum_hex = checksum.hexdigest()
 
-        LOG.debug("Wrote %(bytes)d bytes to %(path)s, "
-                  + "checksum = %(checksum)s" %
-                  ({'bytes': bytes_written,
-                    'path': full_data_path,
-                    'checksum': checksum_hex}))
+        LOG.debug(_("Wrote %(bytes_written)d bytes to %(full_data_path)s, "
+                  "checksum = %(checksum_hex)s") % locals())
         loc = StoreLocation({'scheme': self.scheme,
                              'host': self.host,
                              'port': self.port,
@@ -419,7 +417,7 @@ class Store(glance.store.base.Store):
                              'user': self.user,
                              'password': self.password,
                              'data_name': image_id})
-        return (loc.get_uri(), bytes_written, checksum_hex)
+        return (loc.get_uri(), bytes_written, checksum_hex, {})
 
     def _option_get(self, param):
         result = getattr(CONF, param)
