@@ -436,7 +436,9 @@ class ChunkedFile(object):
     We send this back to the Glance API server as
     """
 
-    CHUNKSIZE = 65536
+    """original: CHUNKSIZE = 65536"""
+    """256MB"""
+    CHUNKSIZE = 256*1024*1024
 
     def __init__(self, fp, conn):
         self.fp = fp
