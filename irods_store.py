@@ -53,25 +53,26 @@ Email: edwin@iplantcollaborative.org
 
 import hashlib
 import httplib
+import logging
 import re
 import tempfile
 import urlparse
 
 from irods import *
 
-from glance.common import exception
-from glance.common import utils
-
 from oslo.config import cfg
-import glance.openstack.common.log as logging
 
-import glance.store
-import glance.store.base
-import glance.store.location
+import glance_store
+from glance_store.common import utils
+import glance_store.driver
+from glance_store import exceptions
+from glance_store.i18n import _
+import glance_store.location
+from glance_store.openstack.common import units
 
 LOG = logging.getLogger(__name__)
 
-irods_opts = [
+_IRODS_OPTS = [
     cfg.StrOpt('irods_store_host'),
     cfg.IntOpt('irods_store_port', default=1247),
     cfg.StrOpt('irods_store_zone'),
@@ -83,10 +84,10 @@ irods_opts = [
 ]
 
 CONF = cfg.CONF
-CONF.register_opts(irods_opts)
+CONF.register_opts(_IRODS_OPTS)
 
 
-class StoreLocation(glance.store.location.StoreLocation):
+class StoreLocation(glance_store.location.StoreLocation):
     """
     Class describing an iRODS URI, in the form:
 
@@ -144,11 +145,17 @@ class StoreLocation(glance.store.location.StoreLocation):
         if self.host is None or self.user is None \
            or self.path is None is None or self.data_name is None:
             reason = _("iRODS URI is invalid")
-            LOG.error(reason)
-            raise exception.BadStoreUri(message=reason)
+            LOG.info(reason)
+            raise exceptions.BadStoreUri(message=reason)
 
 
-class Store(glance.store.base.Store):
+class Store(glance_store.driver.Store):
+
+    OPTIONS = _S3_OPTS
+    EXAMPLE_URL = "irods://<HOST>:<PORT><PATH>"
+
+    READ_CHUNKSIZE = 256*1024*1024
+    WRITE_CHUNKSIZE = READ_CHUNKSIZE
 
     def get_schemes(self):
         return ('irods_store', 'irods')
@@ -180,7 +187,7 @@ class Store(glance.store.base.Store):
                         'zone': self.zone, 'path': self.path,
                         'user': self.user}))
             LOG.error(reason)
-            raise exception.BadStoreConfiguration(store_name="irods",
+            raise exceptions.BadStoreConfiguration(store_name="irods",
                                                   reason=reason)
 
         try:
@@ -195,7 +202,7 @@ class Store(glance.store.base.Store):
             reason = (_("Could not connect with host, port, zone," +
                         " path, or user/password"))
             LOG.error(reason)
-            raise exception.BadStoreConfiguration(store_name="irods",
+            raise exceptions.BadStoreConfiguration(store_name="irods",
                                                   reason=reason)
 
         # check if file exists
@@ -209,14 +216,14 @@ class Store(glance.store.base.Store):
                        "created beforehand") % self.path
             LOG.error(reason)
             conn.disconnect()
-            raise exception.BadStoreConfiguration(store_name="irods",
+            raise exceptions.BadStoreConfiguration(store_name="irods",
                                                   reason=reason)
 
         # for now, let's just close junk up
         LOG.debug("success")
         conn.disconnect()
 
-    def get(self, location):
+    def get(self, location, offset=0, chunk_size=None, context=None):
         """
         Takes a `glance.store.location.Location` object that indicates
         where to find the image file, and returns a tuple of generator
@@ -227,6 +234,13 @@ class Store(glance.store.base.Store):
         :raises `glance.exception.NotFound` if image does not exist
         """
         full_data_path = self.path + "/" + location.store_location.data_name
+
+        cs = chunk_size or self.READ_CHUNKSIZE
+
+        class ChunkedIndexable(glance_store.Indexable):
+            def another(self):
+                return (self.wrapped.fp.read(cs)
+                        if self.wrapped.fp else None)
 
         LOG.debug("connecting to %(host)s for %(data)s" %
                   ({'host': self.host, 'data': full_data_path}))
@@ -241,7 +255,7 @@ class Store(glance.store.base.Store):
             msg = _("image file %s not found") % full_data_path
             Log.debug(msg)
             conn.disconnect()
-            raise exception.NotFound(msg)
+            raise exceptions.NotFound(msg)
         else:
             s = self.get_size(location)
 
@@ -250,9 +264,9 @@ class Store(glance.store.base.Store):
             LOG.debug(msg)
 
             # it is assumed that the ChunkedFile will close the file correctly
-            return (ChunkedFile(f, conn), s)
+            return (ChunkedIndexable(ChunkedFile(f, conn, cs), s), s)
 
-    def get_size(self, location):
+    def get_size(self, location, context=None):
         """
         Takes a `glance.store.location.Location` object that indicates
         where to find the image file, and returns the image_size (or 0
@@ -300,7 +314,7 @@ class Store(glance.store.base.Store):
             conn.disconnect()
             return 0
 
-    def delete(self, location):
+    def delete(self, location, context=None):
         """
         Takes a `glance.store.location.Location` object that indicates
         where to find the image file to delete
@@ -324,7 +338,7 @@ class Store(glance.store.base.Store):
             LOG.error("file not found")
             if conn is not None:
                 conn.disconnect
-            raise exception.NotFound(store_name="irods", reason=reason)
+            raise exceptions.NotFound(store_name="irods", reason=reason)
 
         retval = f.delete()
         conn.disconnect()
@@ -332,9 +346,9 @@ class Store(glance.store.base.Store):
             LOG.debug("delete success")
         else:
             LOG.error("apparently, cannot delete file!")
-            raise exception.Forbidden(store_name="irods", reason=reason)
+            raise exceptions.Forbidden(store_name="irods", reason=reason)
 
-    def add(self, image_id, image_file, image_size):
+    def add(self, image_id, image_file, image_size, context=None):
         """
         Stores an image file with supplied identifier to the backend
         storage system and returns an `glance.store.ImageAddResult` object
@@ -368,7 +382,7 @@ class Store(glance.store.base.Store):
 
         if f is None:
             conn.close()
-            raise exception.Duplicate(_("image file %s already exists "
+            raise exceptions.Duplicate(_("image file %s already exists "
                                         + "or no perms")
                                       % filepath)
 
@@ -378,7 +392,7 @@ class Store(glance.store.base.Store):
 
         try:
             for buf in utils.chunkreadable(image_file,
-                                           ChunkedFile.CHUNKSIZE):
+                                           self.WRITE_CHUNKSIZE):
                 bytes_written += len(buf)
                 checksum.update(buf)
                 f.write(buf)
@@ -389,7 +403,7 @@ class Store(glance.store.base.Store):
             LOG.error(reason)
             f.close()
             conn.disconnect()
-            raise exception.StorageWriteDenied(reason)
+            raise exceptions.StorageWriteDenied(reason)
 
         f.close()
         conn.disconnect()
@@ -420,12 +434,12 @@ class Store(glance.store.base.Store):
         return (loc.get_uri(), bytes_written, checksum_hex, {})
 
     def _option_get(self, param):
-        result = getattr(CONF, param)
+        result = getattr(self.conf.glance_store, param)
         if not result:
             reason = _("Could not find %(param)s in configuration options.") \
                 % locals()
             LOG.error(reason)
-            raise exception.BadStoreConfiguration(store_name="s3",
+            raise exceptions.BadStoreConfiguration(store_name="s3",
                                                   reason=reason)
         return result
 
@@ -436,19 +450,16 @@ class ChunkedFile(object):
     We send this back to the Glance API server as
     """
 
-    """original: CHUNKSIZE = 65536"""
-    """256MB"""
-    CHUNKSIZE = 256*1024*1024
-
-    def __init__(self, fp, conn):
+    def __init__(self, fp, conn, chunk_size):
         self.fp = fp
         self.conn = conn
+        self.chunk_size = chunk_size
 
     def __iter__(self):
         """Return an iterator over the image file"""
         try:
             while True:
-                chunk = self.fp.read(ChunkedFile.CHUNKSIZE)
+                chunk = self.fp.read(self.chunk_size)
                 if chunk:
                     yield chunk
                 else:
@@ -463,3 +474,4 @@ class ChunkedFile(object):
             self.fp = None
             self.conn.disconnect()
             self.conn = None
+            self.chunk_size = None
