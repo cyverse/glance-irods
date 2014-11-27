@@ -151,7 +151,7 @@ class StoreLocation(glance_store.location.StoreLocation):
 
 class Store(glance_store.driver.Store):
 
-    OPTIONS = _S3_OPTS
+    OPTIONS = _IRODS_OPTS
     EXAMPLE_URL = "irods://<HOST>:<PORT><PATH>"
 
     READ_CHUNKSIZE = 256*1024*1024
