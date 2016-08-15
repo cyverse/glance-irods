@@ -48,19 +48,15 @@ import httplib
 import re
 import tempfile
 import urlparse
-
+from irods.session import iRODSSession
 from glance.common import exception
 from glance.common import utils
-
 from oslo.config import cfg
-import glance.openstack.common.log as lallu
-LOG = lallu.getLogger(__name__)
-from irods.session import iRODSSession
-# LOG.logger.parent.parent.setLevel('DEBUG')
-#import ipdb; ipdb.set_trace()
+import glance.openstack.common.log as logging
 import glance.store
 import glance.store.base
 import glance.store.location
+LOG = logging.getLogger(__name__)
 
 irods_opts = [
     cfg.StrOpt('irods_store_host'),
@@ -100,14 +96,16 @@ class IrodsManager(object):
         self.port = conn_dict['port']
         self.zone = conn_dict['zone']
         self.datastore = conn_dict['path']
-        #self.image_name = conn_dict['data_name']
         self.test_path = '/%s/home/%s' % (self.zone, self.user)
         # Test Connection
         self.connect_and_confirm()
 
     def connect_and_confirm(self):
-
-        # Connect to iRODS
+        """ 
+        Confirm connection to irods with the given credentials 
+        
+        """
+        
 
         try:
             msg = (_("connecting to irods://%(host)s:%(port)s%(path)s " +
@@ -141,7 +139,6 @@ class IrodsManager(object):
             raise exception.BadStoreConfiguration(store_name="irods",
                                                   reason=reason)
 
-        # for now, let's just close junk up
         LOG.debug(_("success"))
     return True
 
@@ -200,7 +197,7 @@ class IrodsManager(object):
         try:
             file_object.unlink()
         except:
-            LOG.error("apparently, cannot delete file!")
+            LOG.error("cannot delete file")
             raise exception.Forbidden(store_name="irods", reason=reason)
         LOG.debug("delete success")
 
@@ -281,20 +278,15 @@ class StoreLocation(glance.store.location.StoreLocation):
         self.user = pieces.username
         self.password = pieces.password
 
-        # for now, unless there is a compelling use case,
-        # let's just assume the zone embedded in the path
         path_parts = self.path.split('/')
         self.zone = path_parts[1]
         self.data_name = path_parts[path_parts.__len__() - 1]
 
-        # we'll assume a default if not set
         if pieces.port is None:
             self.port = 1247
         else:
             self.port = pieces.port
 
-        # let's do a few preliminary checks, values are
-        # according to urlparse
         if self.host is None or self.user is None \
            or self.path is None is None or self.data_name is None:
             reason = _("iRODS URI is invalid")
@@ -303,8 +295,6 @@ class StoreLocation(glance.store.location.StoreLocation):
 
 
 class Store(glance.store.base.Store):
-
-    #irods_manager = ''
 
     def get_schemes(self):
         return ('irods', 'irods_store')
@@ -345,7 +335,6 @@ class Store(glance.store.base.Store):
             'path': self.path,
             'user': self.user,
             'password': self.password,
-            #'data_name': self.image_id
         })
 
     def get(self, location):
@@ -361,31 +350,11 @@ class Store(glance.store.base.Store):
 
         LOG.error(_("connecting to %(host)s for %(data)s" %
                     ({'host': self.host, 'data': full_data_path})))
-        # #IRODS_FIX : iRODSSession object
-        # conn, err = rcConnect(self.host, self.port, self.user, self.zone)
-        # #IRODS_FIX : Remove this line
-        # status = clientLoginWithPassword(conn, self.password)
-        # #IRODS_FIX : Replace with session.collection.get()
-        # if self.primary_res is None:
-        #     f = irodsOpen(conn, full_data_path, 'r')
-        # else:
-        #     f = irodsOpen(conn, full_data_path, 'r', self.primary_res)
-
-        # if f is None:
-        #     msg = _("image file %s not found") % full_data_path
-        #     Log.debug(msg)
-        #     #IRODS_FIX : Remove!
-        #     conn.disconnect()
-        #     raise exception.NotFound(msg)
         image_file, size = self.irods_manager.get_image_file(full_data_path)
-
-        #s = self.get_size(location)
 
         msg = _("found image at %s. Returning in ChunkedFile.") \
             % full_data_path
         LOG.error(msg)
-        #import ipdb; ipdb.set_trace()
-        # it is assumed that the ChunkedFile will close the file correctly
         return (ChunkedFile(image_file), size)
 
     def get_size(self, location):
@@ -402,45 +371,6 @@ class Store(glance.store.base.Store):
 
         return self.irods_manager.get_image_file_size(full_data_path)
 
-        #     LOG.debug("connecting to %(host)s for %(data)s" %
-        #               ({'host': self.host, 'data': full_data_path}))
-        #     #IRODS_FIX : replace with iRODSSession object
-        #     conn, err = rcConnect(self.host, self.port, self.user, self.zone)
-        #     #IRODS_FIX : Remove line
-        #     status = clientLoginWithPassword(conn, self.password)
-
-        #     LOG.debug("obtaining collection to file resources")
-        #     #IRODS_FIX : sessions.collections.get()
-        #     c = irodsCollection(conn, self.path)
-        #     objs = c.getObjects()
-
-        #     # I have to grab the resource in this way, bleh
-        #     # this assumes the data object exists within the
-        #     # collection of the store
-        #     resource = None
-        #     for sublist in objs:
-        #         if sublist[0] == location.store_location.data_name:
-        #             resource = sublist[1]
-
-        #     # I need to obtain the resource, but that is only
-        #     # accessible from the collection, apparently
-        #     if (resource is None):
-        #         msg = "could not obtain resource for %s" % full_data_path
-        #         LOG.error(msg)
-        #         raise BackendException(msg)
-        #     #IRODS_FIX : Metadata needed. Figure out
-        #     info = getFileInfo(conn, full_data_path, resource)
-        #     #IRODS_FIX : Remove
-        #     conn.disconnect()
-        #     LOG.debug("path = %(path)s, size = %(data_size)s" %
-        #               ({'path': full_data_path,
-        #                 'data_size': info['data_size']}))
-        #     return info['data_size']
-        # except Exception:
-        #     #IRODS_FIX : Remove
-        #     conn.disconnect()
-        #     return 0
-
     def delete(self, location):
         """
         Takes a `glance.store.location.Location` object that indicates
@@ -456,28 +386,6 @@ class Store(glance.store.base.Store):
                   ({'host': self.host, 'data': full_data_path}))
 
         self.irods_manager.delete_image_file(full_data_path)
-        # #IRODS_FIX : iRODSSession object
-        # conn, err = rcConnect(self.host, self.port, self.user, self.zone)
-        # #IRODS_FIX : Remove
-        # status = clientLoginWithPassword(conn, self.password)
-
-        # LOG.debug("opening file %s" % full_data_path)
-        # #IRODS_FIX : session.collections.get
-        # f = irodsOpen(conn, full_data_path, 'r')
-        # if f is None:
-        #     LOG.error("file not found")
-        #     if conn is not None:
-        #         conn.disconnect
-        #     raise exception.NotFound(store_name="irods", reason=reason)
-
-        # retval = f.delete()
-        # #IRODS_FIX : Remove
-        # conn.disconnect()
-        # if retval == 0:
-        #     LOG.debug("delete success")
-        # else:
-        #     LOG.error("apparently, cannot delete file!")
-        #     raise exception.Forbidden(store_name="irods", reason=reason)
 
     def add(self, image_id, image_file, image_size):
         """
@@ -502,53 +410,6 @@ class Store(glance.store.base.Store):
 
         bytes_written, checksum_hex = self.irods_manager.add_image_file(
             full_data_path, image_file)
-    #     conn, err = rcConnect(self.host, self.port, self.user, self.zone)
-    #     status = clientLoginWithPassword(conn, self.password)
-
-    #     LOG.debug("attempting to open irods file '%s'" % full_data_path)
-    #     if self.primary_res is None:
-    #         f = irodsOpen(conn, full_data_path, "w")
-    #     else:
-    #         f = irodsOpen(conn, full_data_path, "w", self.primary_res)
-
-    #     if f is None:
-    #         conn.close()
-    #         raise exception.Duplicate(_("image file %s already exists "
-    #                                     + "or no perms")
-    #                                   % filepath)
-
-    #     LOG.debug("performing the write")
-    #     checksum = hashlib.md5()
-    #     bytes_written = 0
-
-    #     try:
-    #         for buf in utils.chunkreadable(image_file,
-    #                                        ChunkedFile.CHUNKSIZE):
-    #             bytes_written += len(buf)
-    #             checksum.update(buf)
-    #             f.write(buf)
-    #     except Exception:
-    #         # let's attempt an delete
-    #         f.delete()
-    #         reason = _('paritial write, transfer failed')
-    #         LOG.error(reason)
-    #         f.close()
-    #         conn.disconnect()
-    #         raise exception.StorageWriteDenied(reason)
-
-    #     f.close()
-    #     conn.disconnect()
-
-    #     # let's attempt a replication, but only if the replica resource is not the same as the primary resource
-    #     # if the replication fails, then just ignore
-    # # TODO: irodsFile.replicate() does not work with PyRods v3.2.6 due to a type error.   For now, replication will be disabled! boo
-    # #        if self.replica_res is not None and self.replica_res != self.primary_res :
-    # #            try:
-    # #                f = irodsOpen(conn, full_data_path, 'r')
-    # #                f.replicate(self.replica_res)
-    # #                f.close()
-    # #            except Exception:
-    # #                LOG.error("WARNING: could not replicate '" + full_data_path + "' to resource '" + self.replica_res + "'")
 
         loc = StoreLocation({'scheme': 'irods',
                              'host': self.host,
@@ -583,7 +444,6 @@ class ChunkedFile(object):
 
     def __init__(self, fp):
         self.fp = fp
-        #self.conn = conn
 
     def __iter__(self):
         """Return an iterator over the image file"""
@@ -598,13 +458,3 @@ class ChunkedFile(object):
 
         except:
             print "Error while reading file in chunks. Please see ChunkedFile class"
-        # finally:
-        #     self.close()
-
-    # def close(self):
-    #     """Close the internal file pointer"""
-    #     if self.fp:
-    #         self.fp.close()
-    #         self.fp = None
-    #         self.conn.disconnect()
-    #         sel:f.conn = None
