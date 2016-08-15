@@ -49,19 +49,18 @@ import re
 import tempfile
 import urlparse
 
-from irods.session import iRODSSession
-
 from glance.common import exception
 from glance.common import utils
 
 from oslo.config import cfg
-import glance.openstack.common.log as logging
-
+import glance.openstack.common.log as lallu
+LOG = lallu.getLogger(__name__)
+from irods.session import iRODSSession
+# LOG.logger.parent.parent.setLevel('DEBUG')
+#import ipdb; ipdb.set_trace()
 import glance.store
 import glance.store.base
 import glance.store.location
-
-LOG = logging.getLogger(__name__)
 
 irods_opts = [
     cfg.StrOpt('irods_store_host'),
@@ -76,6 +75,7 @@ irods_opts = [
 
 CONF = cfg.CONF
 CONF.register_opts(irods_opts)
+
 
 class IrodsManager(object):
     """
@@ -92,7 +92,7 @@ class IrodsManager(object):
     test_path = ''
     irods_conn_object = ''
 
-    def __init__(self,conn_dict):
+    def __init__(self, conn_dict):
 
         self.user = conn_dict['user']
         self.password = conn_dict['password']
@@ -100,11 +100,10 @@ class IrodsManager(object):
         self.port = conn_dict['port']
         self.zone = conn_dict['zone']
         self.datastore = conn_dict['path']
-        self.image_name = conn_dict['data_name']
-        self.test_path = '/%s/home/%s'%(self.zone,self.user)
+        #self.image_name = conn_dict['data_name']
+        self.test_path = '/%s/home/%s' % (self.zone, self.user)
         # Test Connection
         self.connect_and_confirm()
-
 
     def connect_and_confirm(self):
 
@@ -114,15 +113,16 @@ class IrodsManager(object):
             msg = (_("connecting to irods://%(host)s:%(port)s%(path)s " +
                      "in zone %(zone)s") %
                    ({'host': self.host, 'port': self.port,
-                     'path': self.path, 'zone': self.zone}))
+                     'path': self.datastore, 'zone': self.zone}))
             LOG.debug(msg)
 
-            sess = iRODSSession(user=self.user,password=self.password,host=self.host,port=self.port,zone=self.zone)
+            sess = iRODSSession(user=str(self.user), password=str(self.password), host=str(
+                self.host), port=int(self.port), zone=str(self.zone))
             coll = sess.collections.get(self.test_path)
- 
-        except Exception:
+
+        except Exception as e:
             reason = (_("Could not connect with host, port, zone," +
-                        " path, or user/password"))
+                        " path, or user/password. %s" % (e)))
             LOG.error(reason)
             raise exception.BadStoreConfiguration(store_name="irods",
                                                   reason=reason)
@@ -130,71 +130,73 @@ class IrodsManager(object):
             self.irods_conn_object = sess
 
         # check if file exists
-        
-        LOG.debug("attempting to check the collection %s" % self.datastore)
+
+        LOG.debug(_("attempting to check the collection %s" % self.datastore))
         try:
             coll = sess.collections.get(self.datastore)
         except Exception:
             reason = _("collection '%s' is not valid or must be " +
-                           "created beforehand") % self.datastore
+                       "created beforehand") % self.datastore
             LOG.error(reason)
             raise exception.BadStoreConfiguration(store_name="irods",
-                                                      reason=reason)
+                                                  reason=reason)
 
-            # for now, let's just close junk up
-            LOG.debug("success")
+        # for now, let's just close junk up
+        LOG.debug(_("success"))
+    return True
 
-
-    def get_image_file(self,full_data_path):
+    def get_image_file(self, full_data_path):
         """
         Looks for the image on the path specified or raises exception
         """
         try:
 
-            file_object = self.irods_conn_object.data_objects.get(full_data_path)
+            file_object = self.irods_conn_object.data_objects.get(
+                full_data_path)
 
         except:
             msg = _("image file %s not found") % full_data_path
-            Log.debug(msg)
+            Log.error(msg)
             raise exception.NotFound(msg)
 
-        LOG.debug("path = %(path)s, size = %(data_size)s" %
+        LOG.error("path = %(path)s, size = %(data_size)s" %
                   ({'path': full_data_path,
                     'data_size': file_object.size}))
 
-        return file_object,file_object.size
+        return file_object, file_object.size
 
-    def get_image_file_size(self,full_data_path):
+    def get_image_file_size(self, full_data_path):
         """
         Returns image size for the file specified or returns 0
         """
         try:
 
-            file_object = self.irods_conn_object.data_objects.get(full_data_path)
-
+            file_object = self.irods_conn_object.data_objects.get(
+                full_data_path)
 
         except:
             msg = _("image size %s not found") % full_data_path
-            Log.debug(msg)
+            Log.error(msg)
             return 0
-        
-        LOG.debug("path = %(path)s, size = %(data_size)s" %
+
+        LOG.error("path = %(path)s, size = %(data_size)s" %
                   ({'path': full_data_path,
                     'data_size': file_object.size}))
         return file_object.size
 
-    def delete_image_file(self,full_data_path):
+    def delete_image_file(self, full_data_path):
         """
         Deletes image file or returns Exception
         """
 
         try:
-            LOG.debug("opening file %s" % full_data_path)
-            file_object = self.irods_conn_object.data_objects.get(full_data_path)
+            LOG.error("opening file %s" % full_data_path)
+            file_object = self.irods_conn_object.data_objects.get(
+                full_data_path)
         except:
             LOG.error("file not found")
             raise exception.NotFound(msg)
-        
+
         try:
             file_object.unlink()
         except:
@@ -202,21 +204,23 @@ class IrodsManager(object):
             raise exception.Forbidden(store_name="irods", reason=reason)
         LOG.debug("delete success")
 
-    def add_image_file(self,full_data_path):
+    def add_image_file(self, full_data_path, image_file):
         """
         Add image file or return exception
         """
 
         try:
-            LOG.debug("attempting to create image file in irods '%s'" % full_data_path)
-            file_object = self.irods_conn_object.data_objects.create(full_data_path)
+            LOG.error("attempting to create image file in irods '%s'" %
+                      full_data_path)
+            file_object = self.irods_conn_object.data_objects.create(
+                full_data_path)
         except:
             LOG.error("file with same name exists in the same path")
             raise exception.Duplicate(_("image file %s already exists "
                                         + "or no perms")
                                       % filepath)
 
-        LOG.debug("performing the write")
+        LOG.error("performing the write")
         checksum = hashlib.md5()
         bytes_written = 0
 
@@ -227,20 +231,23 @@ class IrodsManager(object):
                     bytes_written += len(buf)
                     checksum.update(buf)
                     f.write(buf)
-        except Exception:
+        except Exception as e:
             # let's attempt an delete
             file_object.unlink()
             reason = _('paritial write, transfer failed')
-            LOG.error(reason)
+            LOG.error(e)
             raise exception.StorageWriteDenied(reason)
+        else:
+            checksum_hex = checksum.hexdigest()
+
+            LOG.error(_("Wrote %(bytes_written)d bytes to %(full_data_path)s, "
+                        "checksum = %(checksum_hex)s") % locals())
+            return [bytes_written, checksum_hex]
 
 
 class StoreLocation(glance.store.location.StoreLocation):
-    """
-    Class describing an iRODS URI, in the form:
-    irods://user:password@host:port/zone/subpath/to/collection
-    NOTE: in irods, path actually includes the zone.
-    """
+
+    """Class describing a Filesystem URI"""
 
     def process_specs(self):
         self.scheme = self.specs.get('scheme', 'irods')
@@ -278,7 +285,7 @@ class StoreLocation(glance.store.location.StoreLocation):
         # let's just assume the zone embedded in the path
         path_parts = self.path.split('/')
         self.zone = path_parts[1]
-        self.data_name = path_parts[path_parts.__len__()-1]
+        self.data_name = path_parts[path_parts.__len__() - 1]
 
         # we'll assume a default if not set
         if pieces.port is None:
@@ -297,10 +304,10 @@ class StoreLocation(glance.store.location.StoreLocation):
 
 class Store(glance.store.base.Store):
 
-    irods_manager = ''
+    #irods_manager = ''
 
     def get_schemes(self):
-        return ('irods_store', 'irods')
+        return ('irods', 'irods_store')
 
     def configure_add(self):
         """
@@ -318,7 +325,6 @@ class Store(glance.store.base.Store):
         self.replica_res = self._option_get('irods_store_replica_res')
         self.user = self._option_get('irods_store_user')
         self.password = self._option_get('irods_store_password')
-        self.scheme = 'irods'
 
         if self.host is None or self.zone is None \
            or self.path is None or self.user is None:
@@ -333,16 +339,14 @@ class Store(glance.store.base.Store):
                                                   reason=reason)
 
         self.irods_manager = IrodsManager({
-                             'host': self.host,
-                             'port': self.port,
-                             'zone': self.zone,
-                             'path': self.path,
-                             'user': self.user,
-                             'password': self.password,
-                             'data_name': image_id
-                             })
-
-      
+            'host': self.host,
+            'port': self.port,
+            'zone': self.zone,
+            'path': self.path,
+            'user': self.user,
+            'password': self.password,
+            #'data_name': self.image_id
+        })
 
     def get(self, location):
         """
@@ -355,8 +359,8 @@ class Store(glance.store.base.Store):
         """
         full_data_path = self.path + "/" + location.store_location.data_name
 
-        LOG.debug("connecting to %(host)s for %(data)s" %
-                  ({'host': self.host, 'data': full_data_path}))
+        LOG.error(_("connecting to %(host)s for %(data)s" %
+                    ({'host': self.host, 'data': full_data_path})))
         # #IRODS_FIX : iRODSSession object
         # conn, err = rcConnect(self.host, self.port, self.user, self.zone)
         # #IRODS_FIX : Remove this line
@@ -373,16 +377,16 @@ class Store(glance.store.base.Store):
         #     #IRODS_FIX : Remove!
         #     conn.disconnect()
         #     raise exception.NotFound(msg)
-        image_file,size = self.irods_manager.get_image_file(full_data_path)
+        image_file, size = self.irods_manager.get_image_file(full_data_path)
 
         #s = self.get_size(location)
 
         msg = _("found image at %s. Returning in ChunkedFile.") \
-                % full_data_path
-        LOG.debug(msg)
-
+            % full_data_path
+        LOG.error(msg)
+        #import ipdb; ipdb.set_trace()
         # it is assumed that the ChunkedFile will close the file correctly
-        return (ChunkedFile(f), size)
+        return (ChunkedFile(image_file), size)
 
     def get_size(self, location):
         """
@@ -392,7 +396,6 @@ class Store(glance.store.base.Store):
         :param location `glance.store.location.Location` object, supplied
                         from glance.store.location.get_location_from_uri()
         """
-        
 
         full_data_path = self.path + "/" \
             + location.store_location.data_name
@@ -449,7 +452,7 @@ class Store(glance.store.base.Store):
         """
         full_data_path = self.path + "/" + location.store_location.data_name
 
-        LOG.debug("connecting to %(host)s for %(data)s" %
+        LOG.error("connecting to %(host)s for %(data)s" %
                   ({'host': self.host, 'data': full_data_path}))
 
         self.irods_manager.delete_image_file(full_data_path)
@@ -494,10 +497,11 @@ class Store(glance.store.base.Store):
         """
         full_data_path = self.path + "/" + image_id
 
-        LOG.debug("connecting to %(host)s for %(data)s" %
+        LOG.error("connecting to %(host)s for %(data)s" %
                   ({'host': self.host, 'data': full_data_path}))
 
-        self.irods_manager.add_image_file(full_data_path)
+        bytes_written, checksum_hex = self.irods_manager.add_image_file(
+            full_data_path, image_file)
     #     conn, err = rcConnect(self.host, self.port, self.user, self.zone)
     #     status = clientLoginWithPassword(conn, self.password)
 
@@ -546,11 +550,7 @@ class Store(glance.store.base.Store):
     # #            except Exception:
     # #                LOG.error("WARNING: could not replicate '" + full_data_path + "' to resource '" + self.replica_res + "'")
 
-        checksum_hex = checksum.hexdigest()
-
-        LOG.debug(_("Wrote %(bytes_written)d bytes to %(full_data_path)s, "
-                  "checksum = %(checksum_hex)s") % locals())
-        loc = StoreLocation({'scheme': self.scheme,
+        loc = StoreLocation({'scheme': 'irods',
                              'host': self.host,
                              'port': self.port,
                              'zone': self.zone,
@@ -579,7 +579,7 @@ class ChunkedFile(object):
 
     """original: CHUNKSIZE = 65536"""
     """256MB"""
-    CHUNKSIZE = 256*1024*1024
+    CHUNKSIZE = 256 * 1024 * 1024
 
     def __init__(self, fp):
         self.fp = fp
@@ -594,7 +594,7 @@ class ChunkedFile(object):
                     if chunk:
                         yield chunk
                     else:
-                       break
+                        break
 
         except:
             print "Error while reading file in chunks. Please see ChunkedFile class"
@@ -607,4 +607,4 @@ class ChunkedFile(object):
     #         self.fp.close()
     #         self.fp = None
     #         self.conn.disconnect()
-    #         self.conn = None
+    #         sel:f.conn = None
