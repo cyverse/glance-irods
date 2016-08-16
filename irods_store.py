@@ -458,3 +458,11 @@ class ChunkedFile(object):
 
         except:
             print "Error while reading file in chunks. Please see ChunkedFile class"
+        finally:
+            self.close()
+
+    def close(self):
+        """Close the internal file pointer"""
+        if self.fp:
+            self.fp = None
+            
