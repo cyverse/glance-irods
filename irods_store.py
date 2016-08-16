@@ -140,7 +140,7 @@ class IrodsManager(object):
                                                   reason=reason)
 
         LOG.debug(_("success"))
-    return True
+        return True
 
     def get_image_file(self, full_data_path):
         """
