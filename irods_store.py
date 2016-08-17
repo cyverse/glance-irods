@@ -126,6 +126,10 @@ class IrodsManager(object):
                                                   reason=reason)
         else:
             self.irods_conn_object = sess
+            self.irods_conn_object.cleanup()
+        finally:
+            sess.cleanup()
+            
 
         # check if file exists
 
@@ -138,6 +142,8 @@ class IrodsManager(object):
             LOG.error(reason)
             raise exception.BadStoreConfiguration(store_name="irods",
                                                   reason=reason)
+        finally:
+            sess.cleanup()
 
         LOG.debug(_("success"))
         return True
@@ -156,7 +162,7 @@ class IrodsManager(object):
             Log.error(msg)
             raise exception.NotFound(msg)
 
-        LOG.error("path = %(path)s, size = %(data_size)s" %
+        LOG.debug("path = %(path)s, size = %(data_size)s" %
                   ({'path': full_data_path,
                     'data_size': file_object.size}))
 
@@ -176,7 +182,7 @@ class IrodsManager(object):
             Log.error(msg)
             return 0
 
-        LOG.error("path = %(path)s, size = %(data_size)s" %
+        LOG.debug("path = %(path)s, size = %(data_size)s" %
                   ({'path': full_data_path,
                     'data_size': file_object.size}))
         return file_object.size
@@ -187,7 +193,7 @@ class IrodsManager(object):
         """
 
         try:
-            LOG.error("opening file %s" % full_data_path)
+            LOG.debug("opening file %s" % full_data_path)
             file_object = self.irods_conn_object.data_objects.get(
                 full_data_path)
         except:
@@ -196,6 +202,7 @@ class IrodsManager(object):
 
         try:
             file_object.unlink()
+            self.irods_conn_object.cleanup()
         except:
             LOG.error("cannot delete file")
             raise exception.Forbidden(store_name="irods", reason=reason)
@@ -207,7 +214,7 @@ class IrodsManager(object):
         """
 
         try:
-            LOG.error("attempting to create image file in irods '%s'" %
+            LOG.debug("attempting to create image file in irods '%s'" %
                       full_data_path)
             file_object = self.irods_conn_object.data_objects.create(
                 full_data_path)
@@ -217,7 +224,7 @@ class IrodsManager(object):
                                         + "or no perms")
                                       % filepath)
 
-        LOG.error("performing the write")
+        LOG.debug("performing the write")
         checksum = hashlib.md5()
         bytes_written = 0
 
@@ -237,8 +244,11 @@ class IrodsManager(object):
         else:
             checksum_hex = checksum.hexdigest()
 
-            LOG.error(_("Wrote %(bytes_written)d bytes to %(full_data_path)s, "
+            LOG.debug(_("Wrote %(bytes_written)d bytes to %(full_data_path)s, "
                         "checksum = %(checksum_hex)s") % locals())
+        finally:
+            self.irods_conn_object.cleanup()
+            file_object=None
             return [bytes_written, checksum_hex]
 
 
@@ -348,14 +358,14 @@ class Store(glance.store.base.Store):
         """
         full_data_path = self.path + "/" + location.store_location.data_name
 
-        LOG.error(_("connecting to %(host)s for %(data)s" %
+        LOG.debug(_("connecting to %(host)s for %(data)s" %
                     ({'host': self.host, 'data': full_data_path})))
         image_file, size = self.irods_manager.get_image_file(full_data_path)
 
         msg = _("found image at %s. Returning in ChunkedFile.") \
             % full_data_path
-        LOG.error(msg)
-        return (ChunkedFile(image_file), size)
+        LOG.debug(msg)
+        return (ChunkedFile(image_file, self.irods_manager.irods_conn_object), size)
 
     def get_size(self, location):
         """
@@ -382,7 +392,7 @@ class Store(glance.store.base.Store):
         """
         full_data_path = self.path + "/" + location.store_location.data_name
 
-        LOG.error("connecting to %(host)s for %(data)s" %
+        LOG.debug("connecting to %(host)s for %(data)s" %
                   ({'host': self.host, 'data': full_data_path}))
 
         self.irods_manager.delete_image_file(full_data_path)
@@ -405,7 +415,7 @@ class Store(glance.store.base.Store):
         """
         full_data_path = self.path + "/" + image_id
 
-        LOG.error("connecting to %(host)s for %(data)s" %
+        LOG.debug("connecting to %(host)s for %(data)s" %
                   ({'host': self.host, 'data': full_data_path}))
 
         bytes_written, checksum_hex = self.irods_manager.add_image_file(
@@ -442,27 +452,27 @@ class ChunkedFile(object):
     """256MB"""
     CHUNKSIZE = 256 * 1024 * 1024
 
-    def __init__(self, fp):
+    def __init__(self, fp, conn_obj):
         self.fp = fp
+        self.conn_obj = conn_obj
 
     def __iter__(self):
         """Return an iterator over the image file"""
         try:
+            f = self.fp.open('r+')
             while True:
-                with self.fp.open('r+') as f:
-                    chunk = f.read(ChunkedFile.CHUNKSIZE)
-                    if chunk:
-                        yield chunk
-                    else:
-                        break
+                chunk = f.read(ChunkedFile.CHUNKSIZE)
+                if chunk:
+                    yield chunk
+                else:
+                    break
 
         except:
             print "Error while reading file in chunks. Please see ChunkedFile class"
         finally:
             self.close()
-
     def close(self):
-        """Close the internal file pointer"""
+        """ Close internal file pointer """
         if self.fp:
             self.fp = None
-            
+            self.conn_obj.cleanup()
