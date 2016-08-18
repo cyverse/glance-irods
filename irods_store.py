@@ -126,6 +126,10 @@ class IrodsManager(object):
                                                   reason=reason)
         else:
             self.irods_conn_object = sess
+            self.irods_conn_object.cleanup()
+        finally:
+            sess.cleanup()
+            
 
         # check if file exists
 
@@ -138,6 +142,8 @@ class IrodsManager(object):
             LOG.error(reason)
             raise exception.BadStoreConfiguration(store_name="irods",
                                                   reason=reason)
+        finally:
+            sess.cleanup()
 
         LOG.debug(_("success"))
         return True
@@ -196,6 +202,7 @@ class IrodsManager(object):
 
         try:
             file_object.unlink()
+            self.irods_conn_object.cleanup()
         except:
             LOG.error("cannot delete file")
             raise exception.Forbidden(store_name="irods", reason=reason)
@@ -239,6 +246,9 @@ class IrodsManager(object):
 
             LOG.debug(_("Wrote %(bytes_written)d bytes to %(full_data_path)s, "
                         "checksum = %(checksum_hex)s") % locals())
+        finally:
+            self.irods_conn_object.cleanup()
+            file_object=None
             return [bytes_written, checksum_hex]
 
 
@@ -355,7 +365,7 @@ class Store(glance.store.base.Store):
         msg = _("found image at %s. Returning in ChunkedFile.") \
             % full_data_path
         LOG.debug(msg)
-        return (ChunkedFile(image_file), size)
+        return (ChunkedFile(image_file, self.irods_manager.irods_conn_object), size)
 
     def get_size(self, location):
         """
@@ -442,8 +452,9 @@ class ChunkedFile(object):
     """256MB"""
     CHUNKSIZE = 256 * 1024 * 1024
 
-    def __init__(self, fp):
+    def __init__(self, fp, conn_obj):
         self.fp = fp
+        self.conn_obj = conn_obj
 
     def __iter__(self):
         """Return an iterator over the image file"""
@@ -464,3 +475,4 @@ class ChunkedFile(object):
         """ Close internal file pointer """
         if self.fp:
             self.fp = None
+            self.conn_obj.cleanup()
