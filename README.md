@@ -1,41 +1,57 @@
-glance-irods
-============
+# glance-irods: iRODS Storage Back-end for OpenStack Glance
 
-iRODS Storage Backend for Openstack Glance
+## Dependencies
+* [Python-irodsclient](https://pypi.python.org/pypi/python-irodsclient)
+* OpenStack Glance
 
-Dependencies
-------------
-* Python-irodsclient (Maintained by irods)
-* Openstack Glance (of course)
+## Manual Installation
 
-Installation
-------------
-These steps assume the installation onto a glance server.
+This procedure is intended for OpenStack Newton release; procedure may differ for other versions of OpenStack.
 
-1. **Install iRODS** ``` pip install git+git://github.com/irods/python-irodsclient.git```
-2. **Configuration** Add or change the following configuration to your glance-api.conf file, which is /etc/glance/glance-api.conf for the glance-api packaged by Ubuntu Cloud Archive.  These are options are found in the [DEFAULT] section:
+These steps assume you are installing glance-irods on an OpenStack Glance server or container.
 
-    \# I prefer irods  
-    default_store = irods
+1. Install python-irodsclient
 
-    \# you can also tack it onto the end of the list as well  
-    known_stores = glance.store.irods\_store.Store
+```
+pip install python-irodsclient
+```
 
-    \# iRODS Store Options  
-    irods_store_host = my.exampleirodshost.org  
-    irods\_store\_port = 1247  
-    irods\_store\_zone = tempZone  
-    irods\_store\_path = /tempZone/home/openstack\_images  
-    irods\_store\_user = openstack\_images  
-    irods\_store\_password = somepassword  
+2. Configure Glance
 
-3. **Setup** Copy-paste irods_store.py to /usr/lib/python2.7/glance/store and restart glance-api
+Add or change the following configuration to the appropriate sections of your `glance-api.conf`; this file is stored in `/etc/glance/glance-api.conf` for glance-api as packaged by OpenStack-Ansible and Ubuntu Cloud Archive.
+
+```
+[default]
+# Replace the following with connection details for your own iRODS deployment
+irods_store_host = my.exampleirodshost.org
+irods_store_port = 1247
+irods_store_zone = tempZone
+irods_store_path = /tempZone/home/openstack_images
+irods_store_user = openstack_images
+irods_store_password = somepassword
+
+[glance_store]
+stores = irods  # You may have a comma-separated list of multiple back-ends
+default_store = irods
+
+[glance_store.drivers]
+glance.store.irods.Store = glance_store._drivers.irods:Store
+irods = glance_store._drivers.irods:Store
+```
 
 
-Questions?
-----------
+3. Install glance-irods
+
+- Copy irods.py to the `_drivers` folder of your glance_store Python package. For an OpenStack-Ansible deployment, this may be
+`/openstack/venvs/glance-14.0.4/lib/python2.7/site-packages/glance_store/_drivers`
+
+- Restart glance-api, e.g. `systemctl restart glance-api`
+
+
+## Questions?
+
 Feel free to email me at edwin@iplantcollaborative.org
 
-License
--------
+## License
+
 It's a standard BSD License. See LICENSE.txt
