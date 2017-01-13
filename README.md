@@ -59,11 +59,13 @@ Copy irods.py to the `_drivers` subfolder of glance_store.
 
 Next to glance_store's libraries folder, you should see a dist-info folder, e.g.
 
-`/openstack/venvs/glance-14.0.4/lib/python2.7/site-packages/glance_store-0.18.0.dist-info`. Find `entry_points.txt` in this folder and add the following text:
+`/openstack/venvs/glance-14.0.4/lib/python2.7/site-packages/glance_store-0.18.0.dist-info`. Find `entry_points.txt` in this folder and add the following text to the `[glance_store.drivers]` section:
 
 ```
+[glance_store.drivers]
+...
 glance.store.irods.Store = glance_store._drivers.irods:Store
-irods = glance_store._drivers.irods:Store                   
+irods = glance_store._drivers.irods:Store
 ```
 
 ### Restart glance-api

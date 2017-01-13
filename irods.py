@@ -102,11 +102,11 @@ class IrodsManager(object):
         self.connect_and_confirm()
 
     def connect_and_confirm(self):
-        """ 
-        Confirm connection to irods with the given credentials 
-        
         """
-        
+        Confirm connection to irods with the given credentials
+
+        """
+
 
         try:
             msg = (_("connecting to irods://%(host)s:%(port)s%(path)s " +
@@ -130,7 +130,7 @@ class IrodsManager(object):
             self.irods_conn_object.cleanup()
         finally:
             sess.cleanup()
-            
+
 
         # check if file exists
 
@@ -306,7 +306,7 @@ class StoreLocation(glance_store.location.StoreLocation):
 
 
 class Store(glance_store.driver.Store):
-    
+
     _CAPABILITIES = (capabilities.BitMasks.READ_ACCESS | capabilities.BitMasks.DRIVER_REUSABLE)
     OPTIONS = irods_opts
 
@@ -350,7 +350,7 @@ class Store(glance_store.driver.Store):
             'password': self.password,
         })
 
-    def get(self, location):
+    def get(self, location, context=None):
         """
         Takes a `glance.store.location.Location` object that indicates
         where to find the image file, and returns a tuple of generator
@@ -370,7 +370,7 @@ class Store(glance_store.driver.Store):
         LOG.debug(msg)
         return (ChunkedFile(image_file, self.irods_manager.irods_conn_object), size)
 
-    def get_size(self, location):
+    def get_size(self, location, context=None):
         """
         Takes a `glance.store.location.Location` object that indicates
         where to find the image file, and returns the image_size (or 0
@@ -384,7 +384,7 @@ class Store(glance_store.driver.Store):
 
         return self.irods_manager.get_image_file_size(full_data_path)
 
-    def delete(self, location):
+    def delete(self, location, context=None):
         """
         Takes a `glance.store.location.Location` object that indicates
         where to find the image file to delete
@@ -400,7 +400,7 @@ class Store(glance_store.driver.Store):
 
         self.irods_manager.delete_image_file(full_data_path)
 
-    def add(self, image_id, image_file, image_size):
+    def add(self, image_id, image_file, image_size, context=None, verifier=None):
         """
         Stores an image file with supplied identifier to the backend
         storage system and returns an `glance.store.ImageAddResult` object
