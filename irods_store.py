@@ -31,7 +31,7 @@ PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
 LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-Assumption: in iRODs, the path (aka collection) usually embeds the zone.  In
+Assumption: in iRODS, the path (aka collection) usually embeds the zone.  In
 some cases, such as in a federated environment, the zone and a path to a data
 object may not be the same.  This implementation assumes that the data object
 exists within the same zone.  This could be modified later, if there is a real
@@ -244,7 +244,7 @@ class IrodsManager(object):
         try:
             with file_object.open('r+') as f:
                 for buf in utils.chunkreadable(image_file,
-                                               ChunkedFile.CHUNKSIZE):
+                                               ChunkedFile.default_chunk_size):
                     bytes_written += len(buf)
                     checksum.update(buf)
                     f.write(buf)
@@ -360,7 +360,7 @@ class Store(glance_store.driver.Store):
             'password': self.password,
         })
 
-    def get(self, location, context=None):
+    def get(self, location, offset=0, chunk_size=None, context=None):
         """
         Takes a `glance.store.location.Location` object that indicates
         where to find the image file, and returns a tuple of generator
@@ -369,6 +369,7 @@ class Store(glance_store.driver.Store):
                         from glance.store.location.get_location_from_uri()
         :raises `glance.exception.NotFound` if image does not exist
         """
+
         full_data_path = self.path + "/" + location.store_location.data_name
 
         LOG.debug(_("connecting to %(host)s for %(data)s" %
@@ -378,7 +379,8 @@ class Store(glance_store.driver.Store):
         msg = _("found image at %s. Returning in ChunkedFile.") \
             % full_data_path
         LOG.debug(msg)
-        return (ChunkedFile(image_file, self.irods_manager.irods_conn_object), size)
+        return (ChunkedFile(image_file, self.irods_manager.irods_conn_object,
+                            chunk_size=chunk_size, offset=offset), size)
 
     def get_size(self, location, context=None):
         """
@@ -468,21 +470,22 @@ class ChunkedFile(object):
     """
     We send this back to the Glance API server as
     """
+    default_chunk_size = 268435456  # 256 MB
 
-    """original: CHUNKSIZE = 65536"""
-    """256MB"""
-    CHUNKSIZE = 256 * 1024 * 1024
-
-    def __init__(self, fp, conn_obj):
+    def __init__(self, fp, conn_obj, chunk_size=None, offset=0):
         self.fp = fp
         self.conn_obj = conn_obj
+        self.chunk_size = chunk_size or ChunkedFile.default_chunk_size
+        self.offset = offset
 
     def __iter__(self):
         """Return an iterator over the image file"""
         try:
             f = self.fp.open('r+')
+            if self.offset != 0:
+                f.read(self.offset)  # This is discarded
             while True:
-                chunk = f.read(ChunkedFile.CHUNKSIZE)
+                chunk = f.read(self.chunk_size)
                 if chunk:
                     yield chunk
                 else:
