@@ -294,7 +294,7 @@ class StoreLocation(glance_store.location.StoreLocation):
         Parses the uri's
         """
         pieces = urlparse.urlparse(uri)
-        assert pieces.scheme in ('irods_store','irods')
+        assert pieces.scheme in ('irods_store', 'irods')
         self.scheme = pieces.scheme
         self.host = pieces.hostname
         self.path = pieces.path.rstrip('/')
