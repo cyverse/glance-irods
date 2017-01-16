@@ -113,21 +113,22 @@ class IrodsManager(object):
         self.connect_and_confirm()
 
     def connect_and_confirm(self):
+        """ 
+        Confirm connection to irods with the given credentials 
+        
         """
-        Confirm connection to irods with the given credentials
-
-        """
-
+        
 
         try:
             msg = (_("connecting to irods://%(host)s:%(port)s%(path)s " +
                      "in zone %(zone)s") %
                    ({'host': self.host, 'port': self.port,
                      'path': self.datastore, 'zone': self.zone}))
-            LOG.debug(msg)
 
+            LOG.debug(msg)
             sess = iRODSSession(user=str(self.user), password=str(self.password), host=str(
                 self.host), port=int(self.port), zone=str(self.zone))
+
             coll = sess.collections.get(self.test_path)
 
         except Exception as e:
@@ -141,7 +142,7 @@ class IrodsManager(object):
             self.irods_conn_object.cleanup()
         finally:
             sess.cleanup()
-
+            
 
         # check if file exists
 
@@ -293,7 +294,7 @@ class StoreLocation(glance_store.location.StoreLocation):
         Parses the uri's
         """
         pieces = urlparse.urlparse(uri)
-        assert pieces.scheme in ('irods_store', 'irods')
+        assert pieces.scheme in ('irods_store','irods')
         self.scheme = pieces.scheme
         self.host = pieces.hostname
         self.path = pieces.path.rstrip('/')
@@ -317,7 +318,7 @@ class StoreLocation(glance_store.location.StoreLocation):
 
 
 class Store(glance_store.driver.Store):
-
+    
     _CAPABILITIES = (capabilities.BitMasks.READ_ACCESS | capabilities.BitMasks.DRIVER_REUSABLE)
     OPTIONS = irods_opts
 
@@ -434,6 +435,14 @@ class Store(glance_store.driver.Store):
             full_data_path, image_file)
 
         loc = StoreLocation({'scheme': 'irods',
+                             'host': self.host,
+                             'port': self.port,
+                             'zone': self.zone,
+                             'path': self.path,
+                             'user': self.user,
+                             'password': self.password,
+                             'data_name': image_id},
+                              {'scheme': 'irods',
                              'host': self.host,
                              'port': self.port,
                              'zone': self.zone,
