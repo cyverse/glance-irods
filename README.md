@@ -53,7 +53,7 @@ Add `irods` to the `choices` tuple in the following block of `backend.py` in tha
                         'sheepdog', 'cinder', 'vsphere', 'irods'),         
                help=_("""                                                  
 ```
-
+See example `backend.py` in this repo.
 
 Copy irods.py to the `_drivers` subfolder of glance_store.
 
@@ -67,6 +67,8 @@ Next to glance_store's libraries folder, you should see a dist-info folder, e.g.
 glance.store.irods.Store = glance_store._drivers.irods_store:Store
 irods = glance_store._drivers.irods_store:Store
 ```
+
+See example `entry_points.txt` in this repo.
 
 ### Restart glance-api
 
