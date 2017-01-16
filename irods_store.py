@@ -444,14 +444,7 @@ class Store(glance_store.driver.Store):
                              'user': self.user,
                              'password': self.password,
                              'data_name': image_id},
-                              {'scheme': 'irods',
-                             'host': self.host,
-                             'port': self.port,
-                             'zone': self.zone,
-                             'path': self.path,
-                             'user': self.user,
-                             'password': self.password,
-                             'data_name': image_id})
+                             None)
         return (loc.get_uri(), bytes_written, checksum_hex, {})
 
     def _option_get(self, param):
