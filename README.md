@@ -57,7 +57,7 @@ Add `irods` to the `choices` tuple in the following block of `backend.py` in tha
 ```
 See example `backend.py` in this repo.
 
-Copy irods.py to the `_drivers` subfolder of glance_store.
+Copy irods_store.py to the `_drivers` subfolder of glance_store.
 
 Next to the `my-venv/lib/python2.7/site-packages/glance_store` folder, you should see a dist-info folder, e.g. `/openstack/venvs/glance-14.0.4/lib/python2.7/site-packages/glance_store-0.18.0.dist-info`. Find `entry_points.txt` in this folder and add the following text to the `[glance_store.drivers]` section:
 
