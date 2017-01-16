@@ -326,7 +326,7 @@ class Store(glance_store.driver.Store):
         return ('irods',)
 
     def configure_add(self):
-        """i
+        """
         Configure the Store to use the stored configuration options
         Any store that needs special configuration should implement
         this method. If the store was not able to successfully configure
