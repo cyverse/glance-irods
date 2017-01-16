@@ -75,7 +75,10 @@ irods = glance_store._drivers.irods_store:Store
 
 ## Questions?
 
-Feel free to email me at edwin@iplantcollaborative.org
+Feel free to contact the developers:
+- Edwin Skidmore (edwin@cyverse.org)
+- Amit Juneja (amitj@cyverse.org)
+- Chris Martin (cmart@cyverse.org)
 
 ## License
 
