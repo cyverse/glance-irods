@@ -64,8 +64,8 @@ Next to glance_store's libraries folder, you should see a dist-info folder, e.g.
 ```
 [glance_store.drivers]
 ...
-glance.store.irods.Store = glance_store._drivers.irods:Store
-irods = glance_store._drivers.irods:Store
+glance.store.irods.Store = glance_store._drivers.irods_store:Store
+irods = glance_store._drivers.irods_store:Store
 ```
 
 ### Restart glance-api
