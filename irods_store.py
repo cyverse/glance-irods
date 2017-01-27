@@ -450,7 +450,7 @@ class Store(glance_store.driver.Store):
     def _option_get(self, param):
         result = getattr(CONF, param)
         if not result:
-            reason = "Could not find %(param)s in configuration options." \
+            reason = _("Could not find %(param)s in configuration options.") \
                 % locals()
             LOG.error(reason)
             raise exceptions.BadStoreConfiguration(store_name="irods",
