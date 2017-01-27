@@ -407,8 +407,8 @@ class Store(glance_store.driver.Store):
         """
         full_data_path = self.path + "/" + location.store_location.data_name
 
-        LOG.debug("connecting to %(host)s for %(data)s" %
-                  ({'host': self.host, 'data': full_data_path}))
+        LOG.debug(_("connecting to %(host)s for %(data)s" %
+                  ({'host': self.host, 'data': full_data_path})))
 
         self.irods_manager.delete_image_file(full_data_path)
 
@@ -430,8 +430,8 @@ class Store(glance_store.driver.Store):
         """
         full_data_path = self.path + "/" + image_id
 
-        LOG.debug("connecting to %(host)s for %(data)s" %
-                  ({'host': self.host, 'data': full_data_path}))
+        LOG.debug(_("connecting to %(host)s for %(data)s" %
+                  ({'host': self.host, 'data': full_data_path})))
 
         bytes_written, checksum_hex = self.irods_manager.add_image_file(
             full_data_path, image_file)
