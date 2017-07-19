@@ -254,14 +254,13 @@ class IrodsManager(object):
             reason = _('paritial write, transfer failed')
             LOG.error(e)
             raise exceptions.StorageWriteDenied(reason)
-        else:
+        finally:
+            self.irods_conn_object.cleanup()
+            file_object=None
             checksum_hex = checksum.hexdigest()
 
             LOG.debug(_("Wrote %(bytes_written)d bytes to %(full_data_path)s, "
                         "checksum = %(checksum_hex)s") % locals())
-        finally:
-            self.irods_conn_object.cleanup()
-            file_object=None
             return [bytes_written, checksum_hex]
 
 
