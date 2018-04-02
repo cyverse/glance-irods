@@ -1,5 +1,7 @@
 # glance-irods: iRODS Storage Back-end for OpenStack Glance
 
+**NOTICE**: This repo is no longer maintained (transitioned to using Ceph RBD for Glance images). the iRODS backend most recently worked for OpenStack Newton.
+
 ## Dependencies
 * [Python-irodsclient](https://pypi.python.org/pypi/python-irodsclient)
 * OpenStack Glance
